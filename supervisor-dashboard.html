@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor Dashboard | PunchCard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #3B82F6 0%, #10B981 100%);
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .sidebar-link.active {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: #10B981;
+        }
+        .settings-tab.active {
+            background-color: #3B82F6;
+            color: white;
+        }
+        .github-badge {
+            background-color: #333;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            margin-left: 8px;
+        }
+        .tab-active {
+            background-color: #3B82F6;
+            color: white;
+        }
+        .calendar-day {
+            width: 14.28%;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .calendar-day:hover {
+            background-color: #f3f4f6;
+        }
+        .calendar-day.selected {
+            background-color: #3B82F6;
+            color: white;
+        }
+        .calendar-day.has-shift {
+            background-color: #10B981;
+            color: white;
+        }
+        .page-content {
+            display: none;
+        }
+        .page-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <div class="gradient-bg py-4 shadow-md">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i data-feather="clock" class="text-white w-6 h-6"></i>
+                    <h1 class="text-white text-xl font-bold">PunchCard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <a href="#" class="text-white hover:text-opacity-80" id="notificationBtn">
+                            <i data-feather="bell" class="w-5 h-5"></i>
+                            <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">3</span>
+                        </a>
+                    </div>
+                    <div class="relative">
+                        <a href="#" class="text-white hover:text-opacity-80" id="profileBtn">
+                            <i data-feather="user" class="w-5 h-5"></i>
+                        </a>
+                    </div>
+                    <a href="index.html" class="text-white hover:text-opacity-80" id="logoutBtn">
+                        <i data-feather="log-out" class="w-5 h-5"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex flex-col md:flex-row gap-8">
+            <!-- Sidebar -->
+            <div class="w-full md:w-64 bg-white rounded-lg shadow-sm p-4 h-fit">
+                <div class="flex items-center space-x-3 mb-6">
+                    <div id="userAvatar" class="bg-green-100 w-10 h-10 rounded-full flex items-center justify-center">
+                        <i data-feather="user" class="text-green-600"></i>
+                    </div>
+                    <div>
+                        <h3 id="userName" class="font-medium">Loading...</h3>
+                        <p class="text-xs text-gray-500">
+                            <span id="userRole">Supervisor</span>
+                            <span id="githubBadge" class="github-badge hidden">GitHub</span>
+                        </p>
+                    </div>
+                </div>
+                <nav class="space-y-2">
+                    <a href="#" class="flex items-center space-x-3 p-2 rounded-lg font-medium sidebar-link active" data-page="dashboard">
+                        <i data-feather="home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-2 text-gray-600 hover:bg-gray-100 rounded-lg sidebar-link" data-page="attendance">
+                        <i data-feather="users"></i>
+                        <span>Team Attendance</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-2 text-gray-600 hover:bg-gray-100 rounded-lg sidebar-link" data-page="scheduling">
+                        <i data-feather="calendar"></i>
+                        <span>Scheduling</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-2 text-gray-600 hover:bg-gray-100 rounded-lg sidebar-link" data-page="reports">
+                        <i data-feather="file-text"></i>
+                        <span>Reports</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-2 text-gray-600 hover:bg-gray-100 rounded-lg sidebar-link" id="settingsLink">
+                        <i data-feather="settings"></i>
+                        <span>Settings</span>
+                    </a>
+                </nav>
+                
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <h4 class="text-sm font-medium text-gray-700 mb-3">Team Stats</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">On Time Rate</span>
+                            <span class="font-medium text-green-600">87%</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Avg. Hours</span>
+                            <span class="font-medium text-blue-600">8.2h</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Late This Week</span>
+                            <span class="font-medium text-yellow-600">5</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="flex-1">
+                <!-- Dashboard Page -->
+                <div id="dashboardPage" class="page-content active">
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-gray-800" id="welcomeMessage">Welcome back!</h1>
+                        <p class="text-gray-600" id="currentDate">Loading date...</p>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Team Overview</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 card-hover">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-blue-800">
+                                        <p class="text-sm font-medium">Total Staff</p>
+                                        <p class="text-2xl font-bold">24</p>
+                                    </div>
+                                    <div class="bg-blue-100 p-2 rounded-lg">
+                                        <i data-feather="users" class="text-blue-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-green-50 border border-green-100 rounded-lg p-4 card-hover">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-green-800">
+                                        <p class="text-sm font-medium">Present Today</p>
+                                        <p class="text-2xl font-bold">18</p>
+                                    </div>
+                                    <div class="bg-green-100 p-2 rounded-lg">
+                                        <i data-feather="check-circle" class="text-green-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-yellow-50 border border-yellow-100 rounded-lg p-4 card-hover">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-yellow-800">
+                                        <p class="text-sm font-medium">Late Today</p>
+                                        <p class="text-2xl font-bold">3</p>
+                                    </div>
+                                    <div class="bg-yellow-100 p-2 rounded-lg">
+                                        <i data-feather="clock" class="text-yellow-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-red-50 border border-red-100 rounded-lg p-4 card-hover">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-red-800">
+                                        <p class="text-sm font-medium">Absent Today</p>
+                                        <p class="text-2xl font-bold">3</p>
+                                    </div>
+                                    <div class="bg-red-100 p-2 rounded-lg">
+                                        <i data-feather="x-circle" class="text-red-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Today's Attendance -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">Today's Attendance</h2>
+                            <div class="flex space-x-2">
+                                <button class="text-green-600 text-sm font-medium hover:text-green-800" id="exportBtn">
+                                    <i data-feather="download" class="w-4 h-4 inline mr-1"></i> Export
+                                </button>
+                                <a href="#" class="text-green-600 text-sm font-medium hover:text-green-800 view-all-attendance">View All</a>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock In</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock Out</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="attendanceTable">
+                                    <!-- Attendance data will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Pending Approvals -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">Pending Approvals</h2>
+                            <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">3 requests</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="approvalsTable">
+                                    <!-- Approvals data will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Team Attendance Page -->
+                <div id="attendancePage" class="page-content">
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-gray-800">Team Attendance</h1>
+                        <p class="text-gray-600">Monitor and manage staff attendance</p>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                                <div class="flex space-x-2">
+                                    <input type="date" id="startDate" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                    <input type="date" id="endDate" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                                <select id="departmentFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">All Departments</option>
+                                    <option value="sales">Sales</option>
+                                    <option value="marketing">Marketing</option>
+                                    <option value="development">Development</option>
+                                    <option value="support">Support</option>
+                                </select>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select id="statusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">All Status</option>
+                                    <option value="present">Present</option>
+                                    <option value="late">Late</option>
+                                    <option value="absent">Absent</option>
+                                    <option value="leave">On Leave</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex justify-end mt-4 space-x-3">
+                            <button class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium" id="resetFilters">
+                                Reset
+                            </button>
+                            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium" id="applyFilters">
+                                Apply Filters
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Attendance Table -->
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">Attendance Records</h2>
+                            <div class="flex space-x-2">
+                                <button class="text-blue-600 text-sm font-medium hover:text-blue-800" id="exportAttendance">
+                                    <i data-feather="download" class="w-4 h-4 inline mr-1"></i> Export CSV
+                                </button>
+                                <button class="text-blue-600 text-sm font-medium hover:text-blue-800" id="printAttendance">
+                                    <i data-feather="printer" class="w-4 h-4 inline mr-1"></i> Print
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock In</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock Out</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="teamAttendanceTable">
+                                    <!-- Team attendance data will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4 flex justify-between items-center">
+                            <div class="text-sm text-gray-600">
+                                Showing <span id="showingStart">1</span> to <span id="showingEnd">10</span> of <span id="totalRecords">50</span> records
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50" id="prevPage" disabled>
+                                    Previous
+                                </button>
+                                <button class="px-3 py-1 border border-gray-300 rounded-lg text-sm" id="nextPage">
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scheduling Page -->
+                <div id="schedulingPage" class="page-content">
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-gray-800">Staff Scheduling</h1>
+                        <p class="text-gray-600">Create and manage staff schedules</p>
+                    </div>
+
+                    <!-- Calendar View -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-gray-800" id="currentMonth">January 2024</h2>
+                            <div class="flex space-x-2">
+                                <button class="p-2 hover:bg-gray-100 rounded-lg" id="prevMonth">
+                                    <i data-feather="chevron-left"></i>
+                                </button>
+                                <button class="p-2 hover:bg-gray-100 rounded-lg" id="nextMonth">
+                                    <i data-feather="chevron-right"></i>
+                                </button>
+                                <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium" id="addShiftBtn">
+                                    <i data-feather="plus" class="w-4 h-4 inline mr-1"></i> Add Shift
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-7 gap-1 mb-2">
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">Sun</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">Mon</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">Tue</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">Wed</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">Thu</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">Fri</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">Sat</div>
+                        </div>
+                        
+                        <div class="grid grid-cols-7 gap-1" id="calendarGrid">
+                            <!-- Calendar days will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Shifts for Selected Date -->
+                    <div class="bg-white rounded-lg shadow-sm p-6" id="shiftsSection">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4" id="selectedDateTitle">Select a date to view shifts</h2>
+                        <div id="shiftsList" class="space-y-3">
+                            <p class="text-gray-500 text-center py-8">No date selected</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Page -->
+                <div id="reportsPage" class="page-content">
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-gray-800">Reports & Analytics</h1>
+                        <p class="text-gray-600">Generate detailed attendance reports and analytics</p>
+                    </div>
+
+                    <!-- Report Type Selection -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Generate Report</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-500 cursor-pointer report-type" data-type="attendance">
+                                <div class="flex items-center space-x-3">
+                                    <div class="bg-blue-100 p-2 rounded-lg">
+                                        <i data-feather="clock" class="text-blue-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-medium text-gray-800">Attendance Summary</h3>
+                                        <p class="text-sm text-gray-600">Daily/weekly attendance overview</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-green-500 cursor-pointer report-type" data-type="late">
+                                <div class="flex items-center space-x-3">
+                                    <div class="bg-green-100 p-2 rounded-lg">
+                                        <i data-feather="alert-triangle" class="text-green-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-medium text-gray-800">Late Arrivals</h3>
+                                        <p class="text-sm text-gray-600">Staff late arrival patterns</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-yellow-500 cursor-pointer report-type" data-type="overtime">
+                                <div class="flex items-center space-x-3">
+                                    <div class="bg-yellow-100 p-2 rounded-lg">
+                                        <i data-feather="watch" class="text-yellow-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-medium text-gray-800">Overtime Analysis</h3>
+                                        <p class="text-sm text-gray-600">Overtime hours and trends</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border border-gray-200 rounded-lg p-4 hover:border-purple-500 cursor-pointer report-type" data-type="leave">
+                                <div class="flex items-center space-x-3">
+                                    <div class="bg-purple-100 p-2 rounded-lg">
+                                        <i data-feather="calendar" class="text-purple-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-medium text-gray-800">Leave Analysis</h3>
+                                        <p class="text-sm text-gray-600">Leave patterns and balances</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Report Parameters -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6" id="reportParams" style="display: none;">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4" id="reportTitle">Report Parameters</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                <input type="date" id="reportStartDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                                <input type="date" id="reportEndDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                                <select id="reportDepartment" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">All Departments</option>
+                                    <option value="sales">Sales</option>
+                                    <option value="marketing">Marketing</option>
+                                    <option value="development">Development</option>
+                                    <option value="support">Support</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-3">
+                            <button class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium" id="cancelReport">
+                                Cancel
+                            </button>
+                            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium" id="generateReport">
+                                <i data-feather="file-text" class="w-4 h-4 inline mr-1"></i> Generate Report
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Report Results -->
+                    <div class="bg-white rounded-lg shadow-sm p-6" id="reportResults" style="display: none;">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-gray-800" id="resultsTitle">Report Results</h2>
+                            <div class="flex space-x-2">
+                                <button class="text-blue-600 text-sm font-medium hover:text-blue-800" id="exportReport">
+                                    <i data-feather="download" class="w-4 h-4 inline mr-1"></i> Export PDF
+                                </button>
+                                <button class="text-blue-600 text-sm font-medium hover:text-blue-800" id="printReport">
+                                    <i data-feather="printer" class="w-4 h-4 inline mr-1"></i> Print
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-6" style="height: 300px;">
+                            <canvas id="reportChart"></canvas>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200" id="reportTable">
+                                <!-- Report data will be populated here -->
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Shift Modal -->
+    <div id="addShiftModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-800">Add New Shift</h3>
+                <button id="closeShiftModal" class="text-gray-500 hover:text-gray-700">
+                    <i data-feather="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="shiftForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Staff Member</label>
+                    <select id="shiftStaff" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+                        <option value="">Select staff...</option>
+                        <option value="john-doe">John Doe</option>
+                        <option value="jane-smith">Jane Smith</option>
+                        <option value="mike-wilson">Mike Wilson</option>
+                        <option value="sarah-johnson">Sarah Johnson</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <input type="date" id="shiftDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                        <input type="time" id="shiftStart" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                        <input type="time" id="shiftEnd" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <select id="shiftDepartment" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
+                        <option value="sales">Sales</option>
+                        <option value="marketing">Marketing</option>
+                        <option value="development">Development</option>
+                        <option value="support">Support</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="cancelShift" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium">
+                        Add Shift
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-800">System Settings</h3>
+                <button id="closeSettingsModal" class="text-gray-500 hover:text-gray-700">
+                    <i data-feather="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <!-- Settings Tabs -->
+            <div class="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
+                <button class="settings-tab active flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors bg-blue-500 text-white" data-tab="wifi">
+                    WiFi Auto-Login
+                </button>
+                <button class="settings-tab flex-1 py-2 px-4 rounded-md text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors" data-tab="supervisor">
+                    Acting Supervisor
+                </button>
+                <button class="settings-tab flex-1 py-2 px-4 rounded-md text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors" data-tab="general">
+                    General Settings
+                </button>
+            </div>
+            
+            <!-- WiFi Settings -->
+            <div id="wifiSettings" class="settings-content active space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i data-feather="wifi" class="w-5 h-5 mr-2 text-blue-500"></i>
+                    WiFi Auto-Login Settings
+                </h4>
+                <p class="text-sm text-gray-600 mb-4">
+                    Configure WiFi networks that allow automatic staff login. When staff connect to these networks, 
+                    they will be automatically logged in without manual authentication.
+                </p>
+                
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">WiFi Network 1</label>
+                            <input type="text" id="wifi1" placeholder="Enter WiFi SSID" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div class="mt-6">
+                            <button type="button" class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 text-sm scan-wifi-btn" data-network="1">
+                                Scan
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">WiFi Network 2</label>
+                            <input type="text" id="wifi2" placeholder="Enter WiFi SSID" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div class="mt-6">
+                            <button type="button" class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 text-sm scan-wifi-btn" data-network="2">
+                                Scan
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">WiFi Network 3</label>
+                            <input type="text" id="wifi3" placeholder="Enter WiFi SSID" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div class="mt-6">
+                            <button type="button" class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 text-sm scan-wifi-btn" data-network="3">
+                                Scan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center mb-4">
+                    <input type="checkbox" id="wifiAutoLogin" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="wifiAutoLogin" class="ml-2 text-sm font-medium text-gray-700">
+                        Enable WiFi Auto-Login (staff automatically log in when connected to approved networks)
+                    </label>
+                </div>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-start">
+                        <i data-feather="info" class="w-5 h-5 text-blue-500 mr-2 mt-0.5"></i>
+                        <div>
+                            <p class="text-sm text-blue-800 font-medium">Auto-Login Feature</p>
+                            <p class="text-xs text-blue-700 mt-1">
+                                When enabled, staff will be automatically logged in when they connect to any of the approved WiFi networks.
+                                This eliminates the need for manual login and streamlines the check-in process.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button type="button" id="cancelWifiSettings" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium">
+                        Cancel
+                    </button>
+                    <button type="button" id="saveWifiSettings" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium">
+                        Save WiFi Settings
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Supervisor Settings -->
+            <div id="supervisorSettings" class="settings-content hidden space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i data-feather="user-check" class="w-5 h-5 mr-2 text-green-500"></i>
+                    Acting Supervisor Settings
+                </h4>
+                <p class="text-sm text-gray-600 mb-4">
+                    Assign temporary supervisor privileges to staff members when you're unavailable.
+                </p>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Acting Supervisor</label>
+                        <select id="actingSupervisor" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                            <option value="">Select staff member...</option>
+                            <option value="john-doe">John Doe (Sales)</option>
+                            <option value="jane-smith">Jane Smith (Marketing)</option>
+                            <option value="mike-wilson">Mike Wilson (Development)</option>
+                            <option value="sarah-johnson">Sarah Johnson (Support)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                            <input type="date" id="supervisorStartDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                            <input type="date" id="supervisorEndDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="notifyStaff" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500" checked>
+                        <label for="notifyStaff" class="ml-2 text-sm font-medium text-gray-700">
+                            Notify staff about temporary supervisor assignment
+                        </label>
+                    </div>
+
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <i data-feather="alert-triangle" class="w-5 h-5 text-yellow-500 mr-2 mt-0.5"></i>
+                            <div>
+                                <p class="text-sm text-yellow-800 font-medium">Current Acting Supervisor</p>
+                                <p class="text-xs text-yellow-700 mt-1" id="currentActingSupervisor">
+                                    No acting supervisor currently assigned
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button type="button" id="cancelSupervisorSettings" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium">
+                        Cancel
+                    </button>
+                    <button type="button" id="saveSupervisorSettings" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium">
+                        Assign Supervisor
+                    </button>
+                </div>
+            </div>
+
+            <!-- General Settings -->
+            <div id="generalSettings" class="settings-content hidden space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i data-feather="settings" class="w-5 h-5 mr-2 text-gray-500"></i>
+                    General Settings
+                </h4>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Working Hours</label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Start Time</label>
+                                <input type="time" id="workStartTime" value="09:00" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">End Time</label>
+                                <input type="time" id="workEndTime" value="17:00" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Late Arrival Threshold (minutes)</label>
+                        <input type="number" id="lateThreshold" value="15" min="1" max="60" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+
+                    <div class="flex items-center">
+                        <input type="checkbox" id="autoClockOut" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" checked>
+                        <label for="autoClockOut" class="ml-2 text-sm font-medium text-gray-700">
+                            Auto clock-out at end of working day
+                        </label>
+                    </div>
+
+                    <div class="flex items-center">
+                        <input type="checkbox" id="emailNotifications" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" checked>
+                        <label for="emailNotifications" class="ml-2 text-sm font-medium text-gray-700">
+                            Email notifications for late arrivals
+                        </label>
+                    </div>
+
+                    <div class="flex items-center">
+                        <input type="checkbox" id="smsNotifications" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <label for="smsNotifications" class="ml-2 text-sm font-medium text-gray-700">
+                            SMS notifications for critical alerts
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button type="button" id="cancelGeneralSettings" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium">
+                        Cancel
+                    </button>
+                    <button type="button" id="saveGeneralSettings" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium">
+                        Save General Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Feather Icons
+        feather.replace();
+
+        // Sample data
+        const sampleAttendanceData = [
+            { id: 1, name: 'John Doe', date: '2024-01-15', clockIn: '08:00', clockOut: '17:00', hours: 9.0, status: 'present', department: 'sales', notes: '' },
+            { id: 2, name: 'Jane Smith', date: '2024-01-15', clockIn: '08:15', clockOut: '17:00', hours: 8.75, status: 'late', department: 'marketing', notes: 'Traffic delay' },
+            { id: 3, name: 'Mike Wilson', date: '2024-01-15', clockIn: '08:00', clockOut: '16:30', hours: 8.5, status: 'present', department: 'development', notes: 'Left early' },
+            { id: 4, name: 'Sarah Johnson', date: '2024-01-15', clockIn: '09:00', clockOut: '18:00', hours: 9.0, status: 'late', department: 'support', notes: 'Doctor appointment' },
+            { id: 5, name: 'David Brown', date: '2024-01-15', clockIn: '', clockOut: '', hours: 0, status: 'absent', department: 'sales', notes: 'Sick leave' }
+        ];
+
+        const sampleShifts = [
+            { id: 1, staff: 'John Doe', date: '2024-01-20', start: '09:00', end: '17:00', department: 'sales' },
+            { id: 2, staff: 'Jane Smith', date: '2024-01-20', start: '08:00', end: '16:00', department: 'marketing' },
+            { id: 3, staff: 'Mike Wilson', date: '2024-01-21', start: '10:00', end: '18:00', department: 'development' }
+        ];
+
+        // Global variables
+        let currentPage = 'dashboard';
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let selectedDate = null;
+        let currentReportType = null;
+        let reportChart = null;
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSupervisorData();
+            loadCurrentDate();
+            loadDashboardData();
+            initializeNavigation();
+            initializeCalendar();
+            initializeReports();
+            initializeSettings();
+        });
+
+        // Navigation functionality
+        function initializeNavigation() {
+            const sidebarLinks = document.querySelectorAll('.sidebar-link[data-page]');
+            
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetPage = this.getAttribute('data-page');
+                    
+                    if (targetPage === 'settings') {
+                        document.getElementById('settingsModal').classList.remove('hidden');
+                        loadSettingsData();
+                        return;
+                    }
+                    
+                    // Update active sidebar link
+                    sidebarLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Show target page
+                    showPage(targetPage);
+                });
+            });
+
+            // View all attendance link
+            document.querySelector('.view-all-attendance').addEventListener('click', function(e) {
+                e.preventDefault();
+                showPage('attendance');
+            });
+        }
+
+        function showPage(pageName) {
+            // Hide all pages
+            document.querySelectorAll('.page-content').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Show target page
+            const targetPage = document.getElementById(`${pageName}Page`);
+            targetPage.classList.add('active');
+            
+            currentPage = pageName;
+            
+            // Load page-specific data
+            switch(pageName) {
+                case 'attendance':
+                    loadTeamAttendance();
+                    break;
+                case 'scheduling':
+                    loadCalendar();
+                    break;
+                case 'reports':
+                    // Reports are initialized separately
+                    break;
+            }
+        }
+
+        // Dashboard functions
+        function loadSupervisorData() {
+            const supervisor = JSON.parse(localStorage.getItem('currentSupervisor') || '{}');
+            
+            if (supervisor.name) {
+                document.getElementById('userName').textContent = supervisor.name;
+                document.getElementById('welcomeMessage').textContent = `Welcome back, ${supervisor.name}!`;
+                
+                if (supervisor.provider === 'github') {
+                    document.getElementById('githubBadge').classList.remove('hidden');
+                }
+            }
+        }
+
+        function loadCurrentDate() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        function loadDashboardData() {
+            loadAttendanceTable();
+            loadApprovalsTable();
+        }
+
+        function loadAttendanceTable() {
+            const table = document.getElementById('attendanceTable');
+            table.innerHTML = '';
+
+            sampleAttendanceData.forEach(record => {
+                const statusClass = getStatusClass(record.status);
+                const row = `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <i data-feather="user" class="text-gray-400"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">${record.name}</div>
+                                    <div class="text-sm text-gray-500">${record.department}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.clockIn || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.clockOut || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.hours || '0'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="status-badge ${statusClass}">${record.status}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="#" class="text-blue-600 hover:text-blue-900">View</a>
+                        </td>
+                    </tr>
+                `;
+                table.innerHTML += row;
+            });
+            feather.replace();
+        }
+
+        function loadApprovalsTable() {
+            const approvalsData = [
+                { name: 'John Doe', type: 'Leave Request', date: '2024-01-15', reason: 'Family vacation' },
+                { name: 'Jane Smith', type: 'Time Adjustment', date: '2024-01-14', reason: 'Doctor appointment' },
+                { name: 'Mike Wilson', type: 'Overtime Request', date: '2024-01-13', reason: 'Project deadline' }
+            ];
+
+            const table = document.getElementById('approvalsTable');
+            table.innerHTML = '';
+
+            approvalsData.forEach(request => {
+                const row = `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <i data-feather="user" class="text-gray-400"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">${request.name}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${request.type}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${request.date}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${request.reason}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button class="text-green-600 hover:text-green-900 mr-3 approve-btn">Approve</button>
+                            <button class="text-red-600 hover:text-red-900 reject-btn">Reject</button>
+                        </td>
+                    </tr>
+                `;
+                table.innerHTML += row;
+            });
+            feather.replace();
+
+            // Add event listeners for approval buttons
+            document.querySelectorAll('.approve-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    showMessage('Request approved successfully!', 'success');
+                });
+            });
+
+            document.querySelectorAll('.reject-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    showMessage('Request rejected.', 'success');
+                });
+            });
+        }
+
+        // Team Attendance functions
+        function loadTeamAttendance() {
+            const table = document.getElementById('teamAttendanceTable');
+            table.innerHTML = '';
+
+            sampleAttendanceData.forEach(record => {
+                const statusClass = getStatusClass(record.status);
+                const row = `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="text-sm font-medium text-gray-900">${record.name}</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.date}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.clockIn || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.clockOut || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.hours || '0'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="status-badge ${statusClass}">${record.status}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.notes}</td>
+                    </tr>
+                `;
+                table.innerHTML += row;
+            });
+
+            // Initialize filters
+            document.getElementById('applyFilters').addEventListener('click', applyAttendanceFilters);
+            document.getElementById('resetFilters').addEventListener('click', resetAttendanceFilters);
+            document.getElementById('exportAttendance').addEventListener('click', exportAttendance);
+            document.getElementById('printAttendance').addEventListener('click', printAttendance);
+        }
+
+        function applyAttendanceFilters() {
+            showMessage('Filters applied successfully!', 'success');
+        }
+
+        function resetAttendanceFilters() {
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            document.getElementById('departmentFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            showMessage('Filters reset!', 'success');
+        }
+
+        function exportAttendance() {
+            showMessage('Attendance data exported successfully!', 'success');
+        }
+
+        function printAttendance() {
+            window.print();
+        }
+
+        // Scheduling functions
+        function initializeCalendar() {
+            document.getElementById('prevMonth').addEventListener('click', previousMonth);
+            document.getElementById('nextMonth').addEventListener('click', nextMonth);
+            document.getElementById('addShiftBtn').addEventListener('click', openAddShiftModal);
+            
+            // Shift modal events
+            document.getElementById('closeShiftModal').addEventListener('click', closeAddShiftModal);
+            document.getElementById('cancelShift').addEventListener('click', closeAddShiftModal);
+            document.getElementById('shiftForm').addEventListener('submit', addNewShift);
+            
+            loadCalendar();
+        }
+
+        function loadCalendar() {
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ];
+            
+            document.getElementById('currentMonth').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            const startingDay = firstDay.getDay();
+            const monthLength = lastDay.getDate();
+            
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+            
+            // Add empty cells for days before the first day of the month
+            for (let i = 0; i < startingDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'calendar-day';
+                calendarGrid.appendChild(emptyCell);
+            }
+            
+            // Add cells for each day of the month
+            for (let day = 1; day <= monthLength; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day';
+                dayCell.textContent = day;
+                dayCell.setAttribute('data-date', `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+                
+                // Check if this day has shifts
+                const hasShift = sampleShifts.some(shift => shift.date === dayCell.getAttribute('data-date'));
+                if (hasShift) {
+                    dayCell.classList.add('has-shift');
+                }
+                
+                dayCell.addEventListener('click', function() {
+                    selectDate(this.getAttribute('data-date'));
+                });
+                
+                calendarGrid.appendChild(dayCell);
+            }
+        }
+
+        function previousMonth() {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            loadCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            loadCalendar();
+        }
+
+        function selectDate(date) {
+            selectedDate = date;
+            
+            // Update selected date in calendar
+            document.querySelectorAll('.calendar-day').forEach(day => {
+                day.classList.remove('selected');
+            });
+            document.querySelector(`[data-date="${date}"]`).classList.add('selected');
+            
+            // Load shifts for selected date
+            loadShiftsForDate(date);
+        }
+
+        function loadShiftsForDate(date) {
+            const shifts = sampleShifts.filter(shift => shift.date === date);
+            const shiftsList = document.getElementById('shiftsList');
+            const selectedDateTitle = document.getElementById('selectedDateTitle');
+            
+            const dateObj = new Date(date);
+            selectedDateTitle.textContent = `Shifts for ${dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+            
+            if (shifts.length === 0) {
+                shiftsList.innerHTML = '<p class="text-gray-500 text-center py-8">No shifts scheduled for this date</p>';
+                return;
+            }
+            
+            shiftsList.innerHTML = '';
+            shifts.forEach(shift => {
+                const shiftElement = document.createElement('div');
+                shiftElement.className = 'flex justify-between items-center p-3 border border-gray-200 rounded-lg';
+                shiftElement.innerHTML = `
+                    <div>
+                        <h4 class="font-medium text-gray-800">${shift.staff}</h4>
+                        <p class="text-sm text-gray-600">${shift.start} - ${shift.end} • ${shift.department}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button class="text-blue-600 hover:text-blue-800 text-sm edit-shift" data-id="${shift.id}">
+                            <i data-feather="edit" class="w-4 h-4"></i>
+                        </button>
+                        <button class="text-red-600 hover:text-red-800 text-sm delete-shift" data-id="${shift.id}">
+                            <i data-feather="trash" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+                shiftsList.appendChild(shiftElement);
+            });
+            
+            feather.replace();
+            
+            // Add event listeners for shift actions
+            document.querySelectorAll('.edit-shift').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const shiftId = this.getAttribute('data-id');
+                    editShift(shiftId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-shift').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const shiftId = this.getAttribute('data-id');
+                    deleteShift(shiftId);
+                });
+            });
+        }
+
+        function openAddShiftModal() {
+            document.getElementById('addShiftModal').classList.remove('hidden');
+            if (selectedDate) {
+                document.getElementById('shiftDate').value = selectedDate;
+            }
+        }
+
+        function closeAddShiftModal() {
+            document.getElementById('addShiftModal').classList.add('hidden');
+            document.getElementById('shiftForm').reset();
+        }
+
+        function addNewShift(e) {
+            e.preventDefault();
+            
+            const staff = document.getElementById('shiftStaff').value;
+            const date = document.getElementById('shiftDate').value;
+            const start = document.getElementById('shiftStart').value;
+            const end = document.getElementById('shiftEnd').value;
+            const department = document.getElementById('shiftDepartment').value;
+            
+            // In a real app, you would save to Supabase here
+            showMessage('Shift added successfully!', 'success');
+            closeAddShiftModal();
+            
+            // Reload calendar and shifts
+            loadCalendar();
+            if (date === selectedDate) {
+                loadShiftsForDate(date);
+            }
+        }
+
+        function editShift(shiftId) {
+            showMessage('Edit shift functionality would open here', 'success');
+        }
+
+        function deleteShift(shiftId) {
+            if (confirm('Are you sure you want to delete this shift?')) {
+                showMessage('Shift deleted successfully!', 'success');
+                // In a real app, you would delete from Supabase here
+                loadShiftsForDate(selectedDate);
+                loadCalendar();
+            }
+        }
+
+        // Reports functions
+        function initializeReports() {
+            document.querySelectorAll('.report-type').forEach(type => {
+                type.addEventListener('click', function() {
+                    selectReportType(this.getAttribute('data-type'));
+                });
+            });
+            
+            document.getElementById('generateReport').addEventListener('click', generateReport);
+            document.getElementById('cancelReport').addEventListener('click', cancelReport);
+            document.getElementById('exportReport').addEventListener('click', exportReport);
+            document.getElementById('printReport').addEventListener('click', printReport);
+        }
+
+        function selectReportType(type) {
+            currentReportType = type;
+            document.getElementById('reportParams').style.display = 'block';
+            document.getElementById('reportResults').style.display = 'none';
+            
+            const reportTitles = {
+                'attendance': 'Attendance Summary Report',
+                'late': 'Late Arrivals Report',
+                'overtime': 'Overtime Analysis Report',
+                'leave': 'Leave Analysis Report'
+            };
+            
+            document.getElementById('reportTitle').textContent = reportTitles[type] || 'Report';
+        }
+
+        function generateReport() {
+            document.getElementById('reportResults').style.display = 'block';
+            document.getElementById('resultsTitle').textContent = document.getElementById('reportTitle').textContent;
+            
+            // Generate sample chart
+            const ctx = document.getElementById('reportChart').getContext('2d');
+            
+            if (reportChart) {
+                reportChart.destroy();
+            }
+            
+            reportChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Attendance Rate (%)',
+                        data: [85, 78, 92, 88],
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+            
+            // Generate sample table
+            const table = document.getElementById('reportTable');
+            table.innerHTML = `
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Present Days</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Late Days</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Absent Days</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Rate</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">John Doe</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Sales</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">18</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">90%</td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Jane Smith</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Marketing</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">17</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">3</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">85%</td>
+                    </tr>
+                </tbody>
+            `;
+            
+            showMessage('Report generated successfully!', 'success');
+        }
+
+        function cancelReport() {
+            document.getElementById('reportParams').style.display = 'none';
+            document.getElementById('reportResults').style.display = 'none';
+        }
+
+        function exportReport() {
+            showMessage('Report exported successfully!', 'success');
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        // Settings functionality
+        function initializeSettings() {
+            const settingsModal = document.getElementById('settingsModal');
+            const closeSettingsModal = document.getElementById('closeSettingsModal');
+            const settingsTabs = document.querySelectorAll('.settings-tab');
+            const settingsContents = document.querySelectorAll('.settings-content');
+
+            // Close settings modal
+            closeSettingsModal.addEventListener('click', function() {
+                settingsModal.classList.add('hidden');
+            });
+
+            // Settings tab switching
+            settingsTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const targetTab = this.getAttribute('data-tab');
+                    
+                    // Update active tab
+                    settingsTabs.forEach(t => {
+                        t.classList.remove('active', 'bg-blue-500', 'text-white');
+                        t.classList.add('text-gray-600');
+                    });
+                    this.classList.add('active', 'bg-blue-500', 'text-white');
+                    this.classList.remove('text-gray-600');
+                    
+                    // Show target content
+                    settingsContents.forEach(content => {
+                        content.classList.add('hidden');
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(`${targetTab}Settings`).classList.remove('hidden');
+                    document.getElementById(`${targetTab}Settings`).classList.add('active');
+                });
+            });
+
+            // WiFi Settings
+            initializeWifiSettings();
+
+            // Supervisor Settings
+            initializeSupervisorSettings();
+
+            // General Settings
+            initializeGeneralSettings();
+
+            // Close modal when clicking outside
+            settingsModal.addEventListener('click', function(e) {
+                if (e.target === settingsModal) {
+                    settingsModal.classList.add('hidden');
+                }
+            });
+        }
+
+        function initializeWifiSettings() {
+            const scanButtons = document.querySelectorAll('.scan-wifi-btn');
+            const saveWifiSettings = document.getElementById('saveWifiSettings');
+            const cancelWifiSettings = document.getElementById('cancelWifiSettings');
+
+            // WiFi scanning simulation
+            scanButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const networkNumber = this.getAttribute('data-network');
+                    scanWiFi(networkNumber);
+                });
+            });
+
+            // Save WiFi settings
+            saveWifiSettings.addEventListener('click', function() {
+                saveWifiSettingsToStorage();
+                showMessage('WiFi auto-login settings saved successfully!', 'success');
+                setTimeout(() => {
+                    document.getElementById('settingsModal').classList.add('hidden');
+                }, 1500);
+            });
+
+            // Cancel WiFi settings
+            cancelWifiSettings.addEventListener('click', function() {
+                loadWifiSettings(); // Reset to saved values
+                document.getElementById('settingsModal').classList.add('hidden');
+            });
+        }
+
+        function initializeSupervisorSettings() {
+            const saveSupervisorSettings = document.getElementById('saveSupervisorSettings');
+            const cancelSupervisorSettings = document.getElementById('cancelSupervisorSettings');
+
+            // Set default dates
+            const today = new Date();
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 7);
+
+            document.getElementById('supervisorStartDate').value = today.toISOString().split('T')[0];
+            document.getElementById('supervisorEndDate').value = nextWeek.toISOString().split('T')[0];
+
+            // Save supervisor settings
+            saveSupervisorSettings.addEventListener('click', function() {
+                const supervisor = document.getElementById('actingSupervisor').value;
+                const startDate = document.getElementById('supervisorStartDate').value;
+                const endDate = document.getElementById('supervisorEndDate').value;
+                const notifyStaff = document.getElementById('notifyStaff').checked;
+                
+                if (!supervisor) {
+                    showMessage('Please select an acting supervisor', 'error');
+                    return;
+                }
+
+                if (!startDate || !endDate) {
+                    showMessage('Please select start and end dates', 'error');
+                    return;
+                }
+
+                if (new Date(startDate) >= new Date(endDate)) {
+                    showMessage('End date must be after start date', 'error');
+                    return;
+                }
+
+                saveSupervisorSettingsToStorage(supervisor, startDate, endDate, notifyStaff);
+                showMessage('Acting supervisor assigned successfully!', 'success');
+                setTimeout(() => {
+                    document.getElementById('settingsModal').classList.add('hidden');
+                }, 1500);
+            });
+
+            // Cancel supervisor settings
+            cancelSupervisorSettings.addEventListener('click', function() {
+                document.getElementById('settingsModal').classList.add('hidden');
+            });
+        }
+
+        function initializeGeneralSettings() {
+            const saveGeneralSettings = document.getElementById('saveGeneralSettings');
+            const cancelGeneralSettings = document.getElementById('cancelGeneralSettings');
+
+            // Save general settings
+            saveGeneralSettings.addEventListener('click', function() {
+                saveGeneralSettingsToStorage();
+                showMessage('General settings saved successfully!', 'success');
+                setTimeout(() => {
+                    document.getElementById('settingsModal').classList.add('hidden');
+                }, 1500);
+            });
+
+            // Cancel general settings
+            cancelGeneralSettings.addEventListener('click', function() {
+                loadGeneralSettings(); // Reset to saved values
+                document.getElementById('settingsModal').classList.add('hidden');
+            });
+        }
+
+        // Load all settings data
+        function loadSettingsData() {
+            loadWifiSettings();
+            loadSupervisorSettings();
+            loadGeneralSettings();
+        }
+
+        // WiFi Settings functions
+        function loadWifiSettings() {
+            const wifiSettings = JSON.parse(localStorage.getItem('wifiSettings') || '{}');
+            
+            document.getElementById('wifi1').value = wifiSettings.networks?.[0] || '';
+            document.getElementById('wifi2').value = wifiSettings.networks?.[1] || '';
+            document.getElementById('wifi3').value = wifiSettings.networks?.[2] || '';
+            document.getElementById('wifiAutoLogin').checked = wifiSettings.autoLogin || false;
+        }
+
+        function saveWifiSettingsToStorage() {
+            const wifiSettings = {
+                networks: [
+                    document.getElementById('wifi1').value.trim(),
+                    document.getElementById('wifi2').value.trim(),
+                    document.getElementById('wifi3').value.trim()
+                ].filter(network => network !== ''),
+                autoLogin: document.getElementById('wifiAutoLogin').checked
+            };
+            
+            localStorage.setItem('wifiSettings', JSON.stringify(wifiSettings));
+        }
+
+        function scanWiFi(networkNumber) {
+            const availableNetworks = [
+                'Office_WiFi_5G',
+                'Guest_WiFi',
+                'Conference_Room',
+                'Reception_WiFi',
+                'Management_Network'
+            ];
+            
+            const randomNetwork = availableNetworks[Math.floor(Math.random() * availableNetworks.length)];
+            document.getElementById(`wifi${networkNumber}`).value = randomNetwork;
+            
+            showMessage(`WiFi network "${randomNetwork}" detected and selected!`, 'success');
+        }
+
+        // Supervisor Settings functions
+        function loadSupervisorSettings() {
+            const supervisorSettings = JSON.parse(localStorage.getItem('supervisorSettings') || '{}');
+            
+            if (supervisorSettings.currentSupervisor) {
+                document.getElementById('actingSupervisor').value = supervisorSettings.currentSupervisor;
+                document.getElementById('supervisorStartDate').value = supervisorSettings.startDate || '';
+                document.getElementById('supervisorEndDate').value = supervisorSettings.endDate || '';
+                document.getElementById('notifyStaff').checked = supervisorSettings.notifyStaff !== false;
+                
+                const currentElement = document.getElementById('currentActingSupervisor');
+                if (supervisorSettings.currentSupervisor) {
+                    const staffName = document.getElementById('actingSupervisor').options[document.getElementById('actingSupervisor').selectedIndex].text;
+                    currentElement.textContent = `${staffName} (${supervisorSettings.startDate} to ${supervisorSettings.endDate})`;
+                } else {
+                    currentElement.textContent = 'No acting supervisor currently assigned';
+                }
+            }
+        }
+
+        function saveSupervisorSettingsToStorage(supervisor, startDate, endDate, notifyStaff) {
+            const supervisorSettings = {
+                currentSupervisor: supervisor,
+                startDate: startDate,
+                endDate: endDate,
+                notifyStaff: notifyStaff,
+                assignedAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem('supervisorSettings', JSON.stringify(supervisorSettings));
+            
+            // Update current acting supervisor display
+            const staffName = document.getElementById('actingSupervisor').options[document.getElementById('actingSupervisor').selectedIndex].text;
+            document.getElementById('currentActingSupervisor').textContent = `${staffName} (${startDate} to ${endDate})`;
+            
+            if (notifyStaff) {
+                // In a real app, you would send notifications here
+                console.log('Notifying staff about temporary supervisor assignment');
+            }
+        }
+
+        // General Settings functions
+        function loadGeneralSettings() {
+            const generalSettings = JSON.parse(localStorage.getItem('generalSettings') || '{}');
+            
+            document.getElementById('workStartTime').value = generalSettings.workStartTime || '09:00';
+            document.getElementById('workEndTime').value = generalSettings.workEndTime || '17:00';
+            document.getElementById('lateThreshold').value = generalSettings.lateThreshold || 15;
+            document.getElementById('autoClockOut').checked = generalSettings.autoClockOut !== false;
+            document.getElementById('emailNotifications').checked = generalSettings.emailNotifications !== false;
+            document.getElementById('smsNotifications').checked = generalSettings.smsNotifications || false;
+        }
+
+        function saveGeneralSettingsToStorage() {
+            const generalSettings = {
+                workStartTime: document.getElementById('workStartTime').value,
+                workEndTime: document.getElementById('workEndTime').value,
+                lateThreshold: parseInt(document.getElementById('lateThreshold').value),
+                autoClockOut: document.getElementById('autoClockOut').checked,
+                emailNotifications: document.getElementById('emailNotifications').checked,
+                smsNotifications: document.getElementById('smsNotifications').checked
+            };
+            
+            localStorage.setItem('generalSettings', JSON.stringify(generalSettings));
+        }
+
+        // Utility functions
+        function getStatusClass(status) {
+            switch(status) {
+                case 'present': return 'bg-green-100 text-green-800';
+                case 'late': return 'bg-yellow-100 text-yellow-800';
+                case 'absent': return 'bg-red-100 text-red-800';
+                case 'leave': return 'bg-blue-100 text-blue-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function showMessage(message, type) {
+            const messageEl = document.createElement('div');
+            messageEl.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg fade-in ${
+                type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 
+                'bg-red-100 text-red-800 border border-red-200'
+            }`;
+            messageEl.textContent = message;
+            
+            document.body.appendChild(messageEl);
+            
+            setTimeout(() => {
+                if (messageEl.parentNode) {
+                    messageEl.parentNode.removeChild(messageEl);
+                }
+            }, 3000);
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            localStorage.removeItem('currentSupervisor');
+            window.location.href = 'supervisor-login.html';
+        });
+    </script>
+</body>
+</html>
