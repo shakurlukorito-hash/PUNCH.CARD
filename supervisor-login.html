@@ -104,6 +104,9 @@
     .slide-left {
       transform: translateX(-100%);
     }
+    .slide-right {
+      transform: translateX(100%);
+    }
     .github-btn {
       background-color: #333333;
     }
@@ -641,8 +644,8 @@
       signupTab.classList.remove('tab-active');
       signupTab.classList.add('text-gray-600', 'bg-gray-100');
       
-      loginFormContainer.classList.remove('slide-left');
-      signupFormContainer.classList.remove('slide-left');
+      loginFormContainer.classList.remove('slide-left', 'slide-right');
+      signupFormContainer.classList.remove('slide-left', 'slide-right');
     });
 
     signupTab.addEventListener('click', function() {
