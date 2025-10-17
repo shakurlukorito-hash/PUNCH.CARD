@@ -892,6 +892,13 @@
                 e.preventDefault();
                 showPage('attendance');
             });
+
+            // Settings link
+            document.getElementById('settingsLink').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('settingsModal').classList.remove('hidden');
+                loadSettingsData();
+            });
         }
 
         function showPage(pageName) {
@@ -1673,7 +1680,7 @@
         document.getElementById('logoutBtn').addEventListener('click', function(e) {
             e.preventDefault();
             localStorage.removeItem('currentSupervisor');
-            window.location.href = 'supervisor-login.html';
+            window.location.href = 'index.html';
         });
     </script>
 </body>
